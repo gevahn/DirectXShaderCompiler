@@ -1345,6 +1345,33 @@ Value *TranslateWaveToVal(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
 }
 
+Value *TranslateGetShaderClock(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  OP::OpCode opcode = OP::OpCode::CycleCounterLegacy;
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Value *refArgs[] = {opArg};
+
+  IRBuilder<> Builder(CI);
+  Function *dxilFunc =
+      hlslOP->GetOpFunc(opcode, Type::getVoidTy(CI->getContext()));
+  Value *dxilVal =
+      Builder.CreateCall(dxilFunc, refArgs, hlslOP->GetOpCodeName(opcode));
+
+  Type *ResTy = CI->getType();
+  DXASSERT_NOMSG(dxilVal->getType()->isStructTy() &&
+                 dxilVal->getType()->getNumContainedTypes() == 2);
+
+  Value *ResVal = llvm::UndefValue::get(ResTy);
+  for (unsigned Idx = 0; Idx < 2; ++Idx) {
+    ResVal = Builder.CreateInsertElement(
+        ResVal, Builder.CreateExtractValue(dxilVal, ArrayRef<unsigned>(Idx)),
+        Idx);
+  }
+
+  return ResVal;
+}
+
 // Wave intrinsics of the form fn(val,lane)->val
 Value *TranslateWaveReadLaneAt(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                                HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
@@ -5521,9 +5548,10 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_EvaluateAttributeCentroid, TranslateEvalCentroid, DXIL::OpCode::EvalCentroid},
     {IntrinsicOp::IOP_EvaluateAttributeSnapped, TranslateEvalSnapped, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GeometryIndex, TrivialNoArgWithRetOperation, DXIL::OpCode::GeometryIndex},
-    {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
-    {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
+    {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},    
+    {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},    
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_GetShaderClock, TranslateGetShaderClock, DXIL::OpCode::CycleCounterLegacy},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_HitKind, TrivialNoArgWithRetOperation, DXIL::OpCode::HitKind},
