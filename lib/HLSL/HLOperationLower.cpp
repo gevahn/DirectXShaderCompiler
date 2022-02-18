@@ -1358,16 +1358,18 @@ Value *TranslateGetShaderClock(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   Value *dxilVal =
       Builder.CreateCall(dxilFunc, refArgs, hlslOP->GetOpCodeName(opcode));
 
-  Type *ResTy = CI->getType();
+  Type *ResTy = Builder.getInt64Ty();
+  Value *ResVal = llvm::UndefValue::get(ResTy);
+
   DXASSERT_NOMSG(dxilVal->getType()->isStructTy() &&
                  dxilVal->getType()->getNumContainedTypes() == 2);
 
-  Value *ResVal = llvm::UndefValue::get(ResTy);
-  for (unsigned Idx = 0; Idx < 2; ++Idx) {
-    ResVal = Builder.CreateInsertElement(
-        ResVal, Builder.CreateExtractValue(dxilVal, ArrayRef<unsigned>(Idx)),
-        Idx);
-  }
+  Value *lo = Builder.CreateExtractValue(dxilVal, ArrayRef<unsigned>(0));
+  Value *hi = Builder.CreateExtractValue(dxilVal, ArrayRef<unsigned>(1));
+  lo = Builder.CreateZExt(lo, ResTy);
+  hi = Builder.CreateZExt(hi, ResTy);
+  hi = Builder.CreateShl(hi, 32);
+  ResVal = Builder.CreateOr(lo, hi);
 
   return ResVal;
 }

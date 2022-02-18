@@ -85,7 +85,7 @@
 
 namespace Intrinsics {
 
-uint<2> [[rn]] GetShaderClock() : shader_clock;
+u64 [[rn]] GetShaderClock() : shader_clock;
 int<4> [[rn]] D3DCOLORtoUBYTE4(in $match<0, 1> float<4> x) : d3dcolortoubyte4;
 uint [[rn]]  GetRenderTargetSampleCount() : rtsampleinfo;
 float<2> [[rn]] GetRenderTargetSamplePosition(in int s) : rtsamplepos;
